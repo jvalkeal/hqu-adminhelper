@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+
+<project name="uiplugins" default="dist" basedir=".">
+
+    <property name="dist.dir" location="dist"/>
+
+    
+    
+    <target name="dist">    
+	    <mkdir dir="${dist.dir}"/>
+		<zip file="${dist.dir}/adminhelper.zip">
+			<fileset dir=".">
+				<include name="adminhelper/**"/>
+			</fileset>
+		</zip>
+	</target>
+</project>
