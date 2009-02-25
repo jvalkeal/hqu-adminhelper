@@ -3,13 +3,52 @@
 <project name="uiplugins" default="dist" basedir=".">
 
     <property name="dist.dir" location="dist"/>
+    <property name="assemble.dir" location="assemble"/>
+    <property name="ee.dir" location="${assemble.dir}/ee"/>
+    <property name="ce.dir" location="${assemble.dir}/ce"/>
+
+    <target name="clean">
+	    <delete dir="${assemble.dir}"/>
+	    <mkdir dir="${dist.dir}"/>
+	    <mkdir dir="${ee.dir}"/>
+	    <mkdir dir="${ce.dir}"/>
+   	</target>
+
+    <target name="assemble" depends="clean">
+    	<copy todir="${ce.dir}">
+    		<fileset dir=".">
+			<include name="adminhelper/**"/>
+    		<exclude name="adminhelper/**/EE*"/>
+			</fileset>
+    	</copy>
+    	<copy todir="${ee.dir}">
+    		<fileset dir=".">
+			<include name="adminhelper/**"/>
+			</fileset>
+    	</copy>
+    	
+    	<replaceregexp file="${ee.dir}/adminhelper/app/AdminhelperController.groovy"
+    	                         match="new Sync"
+    	                         replace="new EESync"
+    	                         byline="true"/>
+
+    	<replaceregexp file="${ee.dir}/adminhelper/app/AdminhelperController.groovy"
+    	                         match="new Clone"
+    	                         replace="new EEClone"
+    	                         byline="true"/>
+    	
+   	</target>
 
     
-    
-    <target name="dist">    
+    <target name="dist" depends="assemble">
 	    <mkdir dir="${dist.dir}"/>
-		<zip file="${dist.dir}/adminhelper.zip">
-			<fileset dir=".">
+		<zip file="${dist.dir}/hqu-adminhelper-ce-1.2.zip">
+			<fileset dir="${ce.dir}">
+				<include name="adminhelper/**"/>
+			</fileset>
+		</zip>
+		<zip file="${dist.dir}/hqu-adminhelper-ee-1.2.zip">
+			<fileset dir="${ee.dir}">
 				<include name="adminhelper/**"/>
 			</fileset>
 		</zip>
