@@ -21,6 +21,7 @@ import org.hyperic.hq.events.shared.AlertDefinitionValue
 import org.hyperic.hq.events.shared.AlertConditionValue
 import org.hyperic.hq.events.EventConstants
 import org.hyperic.hq.authz.server.session.Resource
+import org.hyperic.hq.hqu.rendit.util.HQUtil
 
 import org.hyperic.hq.auth.shared.SessionManager
 import org.hyperic.hq.bizapp.server.session.ControlBossEJBImpl
@@ -163,7 +164,7 @@ class AdminhelperController
     private cloneAlertDefinition(alertDefId, eid, name, desc, action_rid, action_name, report) {
     	def cloner = new Clone(user)
    		cloner.cloneAlertDefinition(alertDefId, eid, name, desc, action_rid, action_name)
-   		report.addReport(cloner.reportItem)    		
+   		report.addReport(cloner.manager.reportItem)    		
     }
     
     
@@ -261,9 +262,8 @@ class AdminhelperController
     
     private syncAlertDefinition(fromId,toId,syncData,report) {
     	def sync = new Sync(user)
-    	sync.log = log
    		sync.syncAlertDefinition(fromId, toId, syncData)
-   		report.addReport(sync.reportItem)
+   		report.addReport(sync.manager.reportItem)
     }
     
     /**
@@ -424,6 +424,7 @@ class AdminhelperController
     		[compatibleAlertDefsSchema: COMPATIBLE_RESOURCES_SCHEMA,
     		 compatibleAlertSyncDefsSchema: DEF_TABLE_SCHEMA,
     		 allAlertDefs: getAllAlertDefs(),
+             isEE : HQUtil.isEnterpriseEdition(),
     		 controllableTypes: CONTROLLABLE_TYPES
     	    ])  
     }

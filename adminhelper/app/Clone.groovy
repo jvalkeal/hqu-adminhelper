@@ -13,14 +13,7 @@ import org.hyperic.hq.bizapp.shared.action.EmailActionConfig
 import org.hyperic.hq.events.server.session.Action
 import org.hyperic.util.config.ConfigResponse
 import org.hyperic.hq.auth.shared.SessionManager
-//import for EE classes
-import com.hyperic.hq.bizapp.server.action.control.ScriptAction
-import com.hyperic.hq.bizapp.shared.action.ScriptActionConfig
-import com.hyperic.hq.bizapp.server.action.alert.SnmpAction
-import org.hyperic.hq.bizapp.shared.action.SnmpActionConfig
-import com.hyperic.hq.bizapp.shared.action.ControlActionConfig
-import com.hyperic.hq.bizapp.server.action.alert.EnableAlertDefAction
-import com.hyperic.hq.bizapp.shared.action.EnableAlertDefActionConfig
+import org.hyperic.hq.authz.server.session.AuthzSubject
 
 
 /**
@@ -28,15 +21,34 @@ import com.hyperic.hq.bizapp.shared.action.EnableAlertDefActionConfig
  * with one instance per one cloning operation.
  * 
  */
-class Clone extends Manager {
+class Clone {
+	
+	/** handler to manager */
+	def manager
+	
+	/** Subject for user auth */
+	def AuthzSubject user
+
 	
 	/**
 	 * Constructor.
 	 * @param user	User object which determines your rights.
 	 */
 	Clone(AuthzSubject user) {
-		super(user)
+		this.manager = new Manager(user)
+		this.user = user
 	}
+	
+	/**
+	 * Constructor.
+	 * @param user	User object which determines your rights.
+	 * @param manager	Manager object
+	 */
+	Clone(AuthzSubject user,manager) {
+		this.manager = manager
+		this.user = user
+	}
+
 
 	/**
 	 * This is the main function used by alert cloning. 
@@ -48,7 +60,7 @@ class Clone extends Manager {
 	 * @param action_id Resource id from cloned alert where contron action is done
 	 * @param action_name Action name where action_id is done. stop, start, restart, etc.
 	 */
-	public void cloneAlertDefinition(	int alertDefId,
+	def void cloneAlertDefinition(	int alertDefId,
 										AppdefEntityID aid,
 										String name,
 										String desc,
@@ -56,7 +68,7 @@ class Clone extends Manager {
 										String action_name) {
 		// create new status where functions can report messages 
 		try {
-			def alertDef = AlertDefinitionManagerEJBImpl.one.getByIdAndCheck(user, alertDefId)
+			def alertDef = manager.aMan.getByIdAndCheck(user, alertDefId)
 			def created = doCloneAlertDefinition(alertDef,aid,name,desc,-1, action_rid, action_name)
 
 			// if alert cloning failed, don't even
@@ -75,10 +87,10 @@ class Clone extends Manager {
 		   									null,null)
 		   		}				
 			} else {
-				reportItem.addMessage("Error in recovery alert", Report.ERROR)
+				manager.reportItem.addMessage("Error in recovery alert", Report.ERROR)
 			}
 		} catch (Exception e) {
-			reportItem.addMessage("General error in alert cloning. " + e, Report.ERROR)
+			manager.reportItem.addMessage("General error in alert cloning. " + e, Report.ERROR)
 		}
 	}
 	
@@ -96,7 +108,7 @@ class Clone extends Manager {
 	 * @param action_id Resource id from cloned alert where contron action is done
 	 * @param action_name Action name where action_id is done. stop, start, restart, etc.
 	 */
-	private AlertDefinitionValue doCloneAlertDefinition(AlertDefinition alertDef,
+	def AlertDefinitionValue doCloneAlertDefinition(AlertDefinition alertDef,
 											AppdefEntityID aid,
 											String name,
 											String desc,
@@ -120,28 +132,27 @@ class Clone extends Manager {
    		def conditions = alertDef.getConditions()
    		conditions.each{c -> 
    			if (rMeasurementId > 0)
-   				advT.addCondition(createCondition(c.getAlertConditionValue(),aid,rMeasurementId))
+   				advT.addCondition(manager.createCondition(c.getAlertConditionValue(),aid,rMeasurementId))
    			else
-   				advT.addCondition(createCondition(c.getAlertConditionValue(),aid,-1))
+   				advT.addCondition(manager.createCondition(c.getAlertConditionValue(),aid,-1))
    		}
    		
-   		
-   		// nasty way to get sessionid which is later
-   		// needed by EventsBossEJBImpl to call 
-   		// alert creation
-   		int sessionId = SessionManager.instance.put(user)
-   		def created = eb.createAlertDefinition(sessionId, advT)
+   		def created = manager.eb.createAlertDefinition(manager.sessionId, advT)
    		
    		// actions from old alert
-   		// createAction function in EB needs alertid, 
-   		// so it has to be created before we can add actions
    		def actions = alertDef.getActions()
    		actions.each{ a ->
    			if (rMeasurementId > 0)
-   				checkAndCreateAction(a,sessionId,created,rMeasurementId,action_rid, action_name)
+   				checkAndCreateAction(a,manager.sessionId,created,rMeasurementId,action_rid, action_name)
    			else
-   				checkAndCreateAction(a,sessionId,created,-1,action_rid, action_name)
+   				checkAndCreateAction(a,manager.sessionId,created,-1,action_rid, action_name)
    		}
+   		
+   		// escalation
+   		if(adv.getEscalationId() != null) {
+   			manager.setEscalation(created.id, adv.getEscalationId())
+   		}
+   		
    		// return created alert definition value
    		created
 	}
@@ -155,7 +166,7 @@ class Clone extends Manager {
 	 * @param action_id Resource id from cloned alert where contron action is done
 	 * @param action_name Action name where action_id is done. stop, start, restart, etc.
 	 */
-	private void checkAndCreateAction(Action a,
+	def void checkAndCreateAction(Action a,
 									  int sessionId,
 									  AlertDefinitionValue aDefValue,
 									  int rMeasurementId,
@@ -164,20 +175,20 @@ class Clone extends Manager {
 		// classname from action. we use this to check 
 		// what kind of action we're talking about
 		def classname = a.getClassName() as String
-		def aDef = aMan.getByIdAndCheck(user, aDefValue.id)
+		def aDef = manager.aMan.getByIdAndCheck(user, aDefValue.id)
 		// check what actions should be cloned
 		if (classname.endsWith("EmailAction")) {
-			handleEmailAction(aDef,a)
+			manager.handleEmailAction(aDef,a)
 		// Open NMS integration
 		} else if (classname.endsWith("OpenNMSAction")) {
-			handleOpenNMSAction(aDef,a)
+			manager.handleOpenNMSAction(aDef,a)
 		// script action - EE feature
 		} else if (classname.endsWith("ScriptAction")) {
-			handleScriptAction(aDef,a)
+			manager.handleScriptAction(aDef,a)
 		} else if (classname.endsWith("SnmpAction")) {
-			handleSnmpAction(aDef,a)
+			manager.handleSnmpAction(aDef,a)
 		} else if (classname.endsWith("EnableAlertDefAction")) {
-			handleEnableAlertDefAction(aDef,rMeasurementId)
+			manager.handleEnableAlertDefAction(aDef,rMeasurementId)
 		} else if (classname.endsWith("ControlAction")) {
 			if (action_rid != null && 
 				action_name != null &&
@@ -188,7 +199,7 @@ class Clone extends Manager {
 				def atid = appdefs[0].toInteger()
 				def aid = appdefs[1].toInteger()
 				
-				handleControlAction(aDef,atid,aid,action_name)
+				manager.handleControlAction(aDef,atid,aid,action_name)
 			}
 		}
 	}
@@ -208,7 +219,7 @@ class Clone extends Manager {
    	 * @param ccount
    	 * @param escalation Escalation id
    	 */
-	private AlertDefinitionValue createAlertDefinitionValue(AppdefEntityID aid,
+	def AlertDefinitionValue createAlertDefinitionValue(AppdefEntityID aid,
 															String name,
 															String desc,
 															int priority,
@@ -247,73 +258,10 @@ class Clone extends Manager {
 		
 		// Form - Generate one alert and then disable alert definition until fixed 
 		adv.setWillRecover(willRecover)
-		
-		// check if escalation is enabled
-		adv.setEscalationId(escalation)
-		
+				
 		adv
 	}
    	
-   	/**
-   	 * Create condition
-   	 * 
-   	 * @param c
-   	 * @param aid
-   	 * @param rMeasurementId
-   	 */
-	private AlertConditionValue createCondition(AlertConditionValue c,
-												AppdefEntityID aid,
-												int rMeasurementId) {
-        AlertConditionValue cond = new AlertConditionValue()
-        
-        // set common variables
-        cond.setType(c.type)
-        cond.setRequired(c.required)
-        cond.setName(c.name)
-        
-        // check condition type and handle correct settings
-        if (c.type == EventConstants.TYPE_THRESHOLD) {
-        	// treshold is comparing metric against
-        	// absolute value
-        	cond.setComparator(c.comparator)
-        	cond.setThreshold(c.threshold)
-        	
-        	// we need to find new measurementid from the new
-        	// resource where alert is to be cloned.
-        	cond.setMeasurementId(findCompatibleMeasurementId(c.measurementId,aid))
-        } else if (c.type == EventConstants.TYPE_BASELINE) {
-        	cond.setOption(c.option) //min, max, mean
-        	cond.setThreshold(c.threshold)
-        	cond.setComparator(c.comparator)
-        	// check if baselines are available in new resource.
-        	// If no, notify warning.
-        	def newMeaId = findCompatibleMeasurementId(c.measurementId,aid)
-        	def measMan = MeasurementManagerEJBImpl.one
-        	def newMea = measMan.getMeasurement(newMeaId)
-        	def blines = newMea.baselines
-        	if (blines == null) {
-        		reportItem.addMessage("Baseline not set, alert may not fire", Report.WARN)
-        	}
-        	cond.setMeasurementId(newMeaId)
-        } else if (c.type == EventConstants.TYPE_CONTROL) {
-        	//nothing to do
-        } else if (c.type == EventConstants.TYPE_CHANGE) {
-        	cond.setMeasurementId(findCompatibleMeasurementId(c.measurementId,aid))        	
-        } else if (c.type == EventConstants.TYPE_CUST_PROP) {
-        	//nothing to do
-        } else if (c.type == EventConstants.TYPE_ALERT) {
-        	cond.setMeasurementId(rMeasurementId)
-        } else if (c.type == EventConstants.TYPE_LOG) {
-        	cond.setOption(c.getOption())
-        } else if (c.type == EventConstants.TYPE_CFG_CHG) {        	
-        	cond.setOption(c.getOption())
-        } else {
-        	// we should not be here, something wrong. return null
-        	return null
-        }
-        
-        cond
-	}
    	
    	/**
    	 * This will try to find if alertdefinition has recovery alert setted.
@@ -322,7 +270,7 @@ class Clone extends Manager {
    	 * @param adv	AlertDefinition object which possible recovery we want to find 
    	 * @return 		Available recovery alert if found, return null otherwise.
    	 */
-	private AlertDefinition findRecoveryAlertDefinition(AlertDefinition adv) {
+	def AlertDefinition findRecoveryAlertDefinition(AlertDefinition adv) {
 		AlertDefinition found = null		
 		
 		//find resource where adv belongs
@@ -331,7 +279,7 @@ class Clone extends Manager {
 				":" +
 				adv.getAppdefId())
 		
-   		List definitions = aMan.findAlertDefinitions(user, eid)
+   		List definitions = AlertDefinitionManagerEJBImpl.one.findAlertDefinitions(user, eid)
    		
    		// TODO: what if you have multiple recovery alert definitions.
    		definitions.each{aDef ->

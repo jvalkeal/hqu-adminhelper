@@ -13,14 +13,31 @@ import org.hyperic.hq.events.server.session.Action
  * with one instance per one sync operation.
  * 
  */
-class Sync extends Manager {
+class Sync {
+
+	/** handler to manager */
+	def manager
+	
+	/** Subject for user auth */
+	def AuthzSubject user
 	
 	/**
 	 * Constructor.
 	 * @param user	User object which determines your rights.
 	 */
 	Sync(AuthzSubject user) {
-		super(user)
+		this.manager = new Manager(user)
+		this.user = user
+	}
+	
+	/**
+	 * Constructor.
+	 * @param user	User object which determines your rights.
+	 * @param manager	Manager object
+	 */
+	Sync(AuthzSubject user,manager) {
+		this.manager = manager
+		this.user = user
 	}
 	
 	/**
@@ -32,8 +49,8 @@ class Sync extends Manager {
 	 */
 	def syncAlertDefinition(int fromId, int toId, Map syncData) {
 		try {
-			def fromDef = aMan.getByIdAndCheck(user, fromId)
-			def toDef = aMan.getByIdAndCheck(user, toId)
+			def fromDef = manager.aMan.getByIdAndCheck(user, fromId)
+			def toDef = manager.aMan.getByIdAndCheck(user, toId)
 			def fromADefValue = fromDef.alertDefinitionValue
 			def toADefValue = toDef.alertDefinitionValue
 		
@@ -46,12 +63,23 @@ class Sync extends Manager {
 			if(syncData.get('syncConditions').equals('true'))
 				updateConditions(fromDef,toDef,toADefValue)
 		
-			eb.updateAlertDefinition(sessionId,toADefValue)
+			manager.eb.updateAlertDefinition(manager.sessionId,toADefValue)
 				
 			// update actions
 			updateActions(fromDef, toDef, syncData)
+			
+			// escalation
+			if(syncData.get('syncEsc').equals('true')){ 
+				if(fromDef.escalation != null) {
+					manager.setEscalation(toId, fromDef.escalation.id)
+				} else {
+					manager.setEscalation(toId, 0)
+				}
+			}
+
+			
 		} catch (Exception e) {
-			reportItem.addMessage("Unable to update alert definition. " + e, Report.ERROR)
+			manager.reportItem.addMessage("Unable to update alert definition. " + e, Report.ERROR)
 		}
 	}
 	
@@ -69,7 +97,7 @@ class Sync extends Manager {
 		
    		def conditions = from.getConditions()
    		conditions.each{c -> 
-   			toADef.addCondition(createCondition(c.getAlertConditionValue(),to.appdefEntityId,-1))
+   			toADef.addCondition(manager.createCondition(c.getAlertConditionValue(),to.appdefEntityId,-1))
    		}
 	}
 	
@@ -100,17 +128,17 @@ class Sync extends Manager {
 		from.actions.each{
 			def classname = it.getClassName() as String
 			if (classname.canSync("OpenNMSAction","syncOpenNMS",syncData)) {
-				handleOpenNMSAction(to,it)
+				manager.handleOpenNMSAction(to,it)
 			} else if (classname.canSyncEmail("EmailAction","syncNotifyUsers",syncData,it,EmailActionConfig.TYPE_USERS)) {	
-				handleEmailAction(to,it)
+				manager.handleEmailAction(to,it)
 			} else if (classname.canSyncEmail("EmailAction","syncNotifyRoles",syncData,it,EmailActionConfig.TYPE_ROLES)) {	
-				handleEmailAction(to,it)
+				manager.handleEmailAction(to,it)
 			} else if (classname.canSyncEmail("EmailAction","syncNotifyEmail",syncData,it,EmailActionConfig.TYPE_EMAILS)) {	
-				handleEmailAction(to,it)
+				manager.handleEmailAction(to,it)
 			} else if (classname.canSync("ScriptAction","syncScript",syncData)) {
-				handleScriptAction(to,it)				
+				manager.handleScriptAction(to,it)				
 			} else if (classname.canSync("SnmpAction","syncSnmp",syncData)) {
-				handleSnmpAction(to,it)				
+				manager.handleSnmpAction(to,it)				
 			} 
 		}		
 	}
@@ -141,13 +169,13 @@ class Sync extends Manager {
 		
 		if(syncData.get('syncNotifyFiltered').equals('true')) 
 			to.setNotifyFiltered(from.notifyFiltered)
-		
-		if(syncData.get('syncEsc').equals('true')){ 
-			to.setEscalationId(from.escalationId)
-			// setter doesn't set escalationIdHasBeenSet as true
-			// like other setters are
-			to.setEscalationIdHasBeenSet(true)
+
+		if(syncData.get('syncConditions').equals('true')) {
+			to.setFrequencyType(from.frequencyType)			
+			to.setRange(from.range)			
+			to.setCount(from.getCount())			
 		}
+			
 	}
 	
 

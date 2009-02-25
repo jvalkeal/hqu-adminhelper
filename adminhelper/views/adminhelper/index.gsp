@@ -208,11 +208,18 @@ max-width:450px;
     		}
 		}
 		
+		<% if (isEE) { %>
 		cboxnames = ['syncName','syncDesc','syncPriority','syncEsc',
 					 'syncConditions','syncWillRecover','syncNotifyFiltered',
 					 'syncNotifyUsers','syncNotifyEmail','syncScript',
 					 'syncSnmp','syncOpenNMS', 'syncNotifyRoles'
 					];
+		<% } else { %>
+		cboxnames = ['syncName','syncDesc','syncPriority','syncEsc',
+					 'syncConditions','syncNotifyUsers','syncNotifyEmail',
+					 'syncWillRecover'
+					];
+		<% } %>
 		
 		for(var i = 0; i < cboxnames.length; i++) {
 			content_object[cboxnames[i]] = dojo.byId(cboxnames[i]).checked;
@@ -721,8 +728,10 @@ max-width:450px;
 					<label for="syncConditions">${l.lSyncConditions}</label></div>
 					<div><input id="syncWillRecover" type="checkbox" name="syncWillRecover" value="false"/>
 					<label for="syncWillRecover">${l.lSyncWillRecover}</label></div>
+					<% if (isEE) { %>
 					<div><input id="syncNotifyFiltered" type="checkbox" name="syncNotifyFiltered" value="false"/>
 					<label for="syncNotifyFiltered">${l.lSyncNotifyFiltered}</label></div>
+					<% } %>
 					</div>
 				</div>
 			</div>
@@ -733,18 +742,22 @@ max-width:450px;
 					<div class="filterBox">
 					<div><input id="syncEsc" type="checkbox" name="syncEsc" value="false"/>
 					<label for="syncEsc">${l.lSyncEsc}</label></div>
+					<% if (isEE) { %>
 					<div><input id="syncNotifyRoles" type="checkbox" name="syncNotifyRoles" value="false"/>
 					<label for="syncNotifyRoles">${l.lSyncNotifyRoles}</label></div>
+					<% } %>
 					<div><input id="syncNotifyUsers" type="checkbox" name="syncNotifyUsers" value="false"/>
 					<label for="syncNotifyUsers">${l.lSyncNotifyUsers}</label></div>
 					<div><input id="syncNotifyEmail" type="checkbox" name="syncNotifyEmail" value="false"/>
 					<label for="syncNotifyEmail">${l.lSyncNotifyEmail}</label></div>
+					<% if (isEE) { %>
 					<div><input id="syncScript" type="checkbox" name="syncScript" value="false"/>
 					<label for="syncScript">${l.lSyncScript}</label></div>
 					<div><input id="syncSnmp" type="checkbox" name="syncSnmp" value="false"/>
 					<label for="syncSnmp">${l.lSyncSnmp}</label></div>
 					<div><input id="syncOpenNMS" type="checkbox" name="syncOpenNMS" value="false"/>
 					<label for="syncOpenNMS">${l.lSyncOpenNMS}</label></div>
+					<% } %>
 					</div>
 				</div>
 			</div>
