@@ -125,8 +125,7 @@ class Clone {
    												adv.getWillRecover(),
    												adv.getFrequencyType(),
    												adv.getRange(),
-   												adv.getCount(),
-   												adv.getEscalationId())
+   												adv.getCount())
    		
    		// conditions from old alert
    		def conditions = alertDef.getConditions()
@@ -227,8 +226,7 @@ class Clone {
 															boolean willRecover,
 															int frequency,
 															long crange,
-															long ccount,
-															Integer escalation) {
+															long ccount) {
 		AlertDefinitionValue adv = new AlertDefinitionValue()
 		
 		// name and description
