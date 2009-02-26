@@ -162,6 +162,8 @@ class AdminhelperController
 	 * @param action_name Action name where action_id is done. stop, start, restart, etc.
      */
     private cloneAlertDefinition(alertDefId, eid, name, desc, action_rid, action_name, report) {
+    	// for ee version below line is changed to
+    	// def cloner = new EEClone(user)
     	def cloner = new Clone(user)
    		cloner.cloneAlertDefinition(alertDefId, eid, name, desc, action_rid, action_name)
    		report.addReport(cloner.manager.reportItem)    		
@@ -261,6 +263,8 @@ class AdminhelperController
     }
     
     private syncAlertDefinition(fromId,toId,syncData,report) {
+    	// for ee version below line is changed to
+    	// def sync = new EESync(user)
     	def sync = new Sync(user)
    		sync.syncAlertDefinition(fromId, toId, syncData)
    		report.addReport(sync.manager.reportItem)
