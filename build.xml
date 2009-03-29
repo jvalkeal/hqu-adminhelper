@@ -42,12 +42,12 @@
     
     <target name="dist" depends="assemble">
 	    <mkdir dir="${dist.dir}"/>
-		<zip file="${dist.dir}/hqu_adminhelper-ce-1.2.zip">
+		<zip file="${dist.dir}/hqu_adminhelper-ce-1.3.zip">
 			<fileset dir="${ce.dir}">
 				<include name="adminhelper/**"/>
 			</fileset>
 		</zip>
-		<zip file="${dist.dir}/hqu_adminhelper-ee-1.2.zip">
+		<zip file="${dist.dir}/hqu_adminhelper-ee-1.3.zip">
 			<fileset dir="${ee.dir}">
 				<include name="adminhelper/**"/>
 			</fileset>

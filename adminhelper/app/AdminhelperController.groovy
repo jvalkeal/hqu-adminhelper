@@ -1,11 +1,14 @@
 import org.hyperic.hq.hqu.rendit.BaseController
 
 import java.text.DateFormat
+import java.util.regex.Pattern
+import java.util.regex.Matcher
 import org.hyperic.hq.common.YesOrNo
 
 import org.hyperic.hq.hqu.rendit.html.DojoUtil
 import org.hyperic.hq.events.server.session.AlertDefinitionManagerEJBImpl
 import org.hyperic.hq.authz.server.session.ResourceManagerEJBImpl
+import org.hyperic.hq.authz.server.session.ResourceGroupManagerEJBImpl
 import org.hyperic.hq.appdef.server.session.AppdefManagerEJBImpl
 import org.hyperic.hq.bizapp.server.session.AppdefBossEJBImpl
 import org.hyperic.hq.appdef.server.session.ServerManagerEJBImpl
@@ -56,6 +59,8 @@ class AdminhelperController
 	 /** Platform Manager */
 	 def platformMan
 
+	 /** Group Manager */
+	 def groupMan
 	/**
 	 * Introducing which functions are used as json queries
 	 * within plugin page components.
@@ -66,6 +71,7 @@ class AdminhelperController
 		this.serverMan = ServerManagerEJBImpl.one
 		this.serviceMan = ServiceManagerEJBImpl.one
 		this.platformMan = PlatformManagerEJBImpl.one
+		this.groupMan = ResourceGroupManagerEJBImpl.one
     }
  
     // Methods under ResourceManagerEJBImpl.findResourcesOfPrototype
@@ -176,6 +182,121 @@ class AdminhelperController
     def getCompatibleAlertDefs(params) {
     	DojoUtil.processTableRequest(COMPATIBLE_RESOURCES_SCHEMA, params)
     }
+
+    /**
+     * Process request to filter alert definitions to delete grid.
+     */
+    def getJsonAlertDefs(params) {
+    	
+        def filterType = params.getOne('Adg_FilterType')
+        def resourceSelect = params.getOne('Adg_ResourceSelect')    	
+        def groupSelect = params.getOne('Adg_GroupSelect')
+        def filterText = params.getOne('Adg_FilterText')
+        def disabledAlerts = params.getOne('Adg_DisabledAlerts')
+        def recoveryAlerts = params.getOne('Adg_RecoveryAlerts')
+    	def allDefs = alertHelper.findDefinitions(
+    			AlertSeverity.LOW,
+    			(disabledAlerts == "true" ? false : null),
+    			true) 
+    	def defs = []
+        
+        // first prefilter list
+    	if(filterType == 'all') {
+    		defs = allDefs
+    	} else if (filterType == 'type') {
+    		allDefs.each{
+           		def protoEid = it.appdefType + ':' + it.resource.prototype.valueObject.instanceId
+           		if(protoEid == resourceSelect)
+           			defs << it
+    		}
+    	} else if (filterType == 'group') {
+       		def group = groupMan.findResourceGroupById(user,groupSelect.toInteger())
+       		def gMem = groupMan.getMembers(group)
+    		
+    		allDefs.each{ a ->
+       			
+        		gMem.each{
+        			log.info it.properties
+        			if(a.resource == it)
+        				defs << a
+        		}    			
+    		}
+    	}
+        
+    	JSONArray jsonData = new JSONArray()
+    	
+    	Pattern p = null
+    	try {
+        	if (filterText != null && filterText.trim().length() > 0)
+        		p = Pattern.compile(filterText)    		
+    	} catch (Exception e) {
+    	}
+    	
+    	defs.each {
+       		def row = [:]
+       		def add = false
+       		
+       		if(p != null) {
+       			Matcher m1 = p.matcher(it.name)
+       			Matcher m2 = p.matcher(it.resource.name)
+       			if (m1.find()) add = true
+       			if (m2.find()) add = true
+       		} else {
+       			add = true
+       		}
+
+       		if(add && recoveryAlerts == 'true') {
+       			if(!isRecoveryAlert(it.alertDefinitionValue))
+       				add = false
+       		}
+       		
+       		if(add) {
+           		row.put('name',it.name)
+       			row.put('id',it.id)
+       			row.put('desc',it.description)
+       			row.put('rname',it.resource.name)
+       			jsonData.put(row)       			
+       		}
+    	}
+    	
+    	def json = [items  : jsonData, 
+    	            label  : 'name',
+    	            identifier  : 'name'] as JSONObject
+    	            
+    	            render(inline:"/* ${json} */", contentType:'text/json-comment-filtered')
+    }
+    
+    /**
+     * Process request to delete alert definitions.
+     */
+    def executeDelete(params) {
+    	def manager = new Manager(user)
+    	def nDelete = 0
+    	def report = new Report(Report.INSTANCE_DELETE)
+    	long start = now()
+        def rData = new JSONArray(params.getOne('jsonData'))
+
+    	for(def i = 0; i<rData.length(); i++) {
+            def r = rData.getJSONArray(i)
+            log.info "tf: " + r.getBoolean(3)
+            log.info "int: " + r.getInt(4)
+            if(r.getBoolean(3)) {
+            	manager.deleteAlertDefinition(r.getInt(4))
+            	nDelete++
+            	report.addReport(manager.reportItem)
+            }
+    	}
+
+       	long end = now()
+       	def reportStr = report.getStatusAsString()
+       	def timeStr = "${nDelete} deletion(s) executed in ${end - start} ms. "
+       	timeStr += (report.isOK() ? 'No errors.': 'Errors occured.')
+         
+    	def json = [timeStatus: timeStr,
+    	            reportStatus: "<div>${reportStr}</div>"] as JSONObject
+    	            
+    	render(inline:"/* ${json} */", contentType:'text/json-comment-filtered')
+    }
     
     /**
      * Process json request from sync alert grid.
@@ -262,6 +383,9 @@ class AdminhelperController
          reportStatus: "<div>${reportStr}</div>"]
     }
     
+    /**
+     * 
+     */
     private syncAlertDefinition(fromId,toId,syncData,report) {
     	// for ee version below line is changed to
     	// def sync = new EESync(user)
@@ -419,6 +543,18 @@ class AdminhelperController
          caaction: 'none'
          ]    	
     }
+
+    /**
+     * 
+     */
+    private getGroups() {
+        def res = []
+        resourceHelper.findViewableGroups().each { group ->
+            res << [code: group.id, value: group.name]
+        }
+        res
+    }
+
     
     /**
      * Main page.
@@ -429,7 +565,8 @@ class AdminhelperController
     		 compatibleAlertSyncDefsSchema: DEF_TABLE_SCHEMA,
     		 allAlertDefs: getAllAlertDefs(),
              isEE : HQUtil.isEnterpriseEdition(),
-    		 controllableTypes: CONTROLLABLE_TYPES
+    		 controllableTypes: CONTROLLABLE_TYPES,
+    		 groups: groups
     	    ])  
     }
     

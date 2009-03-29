@@ -20,6 +20,7 @@ class Report {
 	private int instance
 	public final static int INSTANCE_SYNC = 1
 	public final static int INSTANCE_CLONE = 2
+	public final static int INSTANCE_DELETE = 3
 	
 	/**
 	 * Constructor.
@@ -54,6 +55,8 @@ class Report {
 			s += "<div class=\"reportstatus\">${ok} alert(s) created. ${err} alert(s) failed. ${warn} alert(s) with warnings.</div>"
 		else if(instance == INSTANCE_SYNC)
 			s += "<div class=\"reportstatus\">${ok} alert(s) synchronized. ${err} alert(s) failed. ${warn} alert(s) with warnings.</div>"
+		else if(instance == INSTANCE_SYNC)
+			s += "<div class=\"reportstatus\">${ok} alert(s) deleted. ${err} alert(s) failed. ${warn} alert(s) with warnings.</div>"
 		
 			
 		reports.each{
@@ -61,6 +64,8 @@ class Report {
 				s += "<div class=\"reportheader\">Clone ${i}</div>"
 			else if(instance == INSTANCE_SYNC)
 				s += "<div class=\"reportheader\">Sync ${i}</div>"
+			else if(instance == INSTANCE_DELETE)
+				s += "<div class=\"reportheader\">Delete ${i}</div>"
 			def statstr = levelAsString(it.status)
 			s += "<div class=\"reportsection\">Status: ${statstr}</div>"
 			it.message.each {m,l ->

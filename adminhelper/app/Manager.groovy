@@ -192,6 +192,16 @@ class Manager {
 			eb.unsetEscalationByAlertDefId(sessionId, aDefId, mat)
 		}
 	}
+	
+	/**
+	 * Delete alert definitions.
+	 * @param 
+	 */
+	def deleteAlertDefinition(int id) {
+		Integer[] ids = new Integer[1]
+		ids[0] = new Integer(id)
+		eb.deleteAlertDefinitions(sessionId, ids)
+	}
 
 	
 }

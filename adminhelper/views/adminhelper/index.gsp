@@ -52,12 +52,6 @@ max-width:450px;
 		font-size: 100%;
 		font-family: inherit;
 	}
-	.dojoxGrid input {
-	}
-	.dojoxGrid select {
-	}
-	.dojoxGrid textarea {
-	}
 	
 	.tundra .dojoxGrid-cell {
 		border-bottom: 1px solid #DDDDDD;
@@ -101,7 +95,17 @@ max-width:450px;
 		border-style:solid;
 		border-width:1px;
 	}
-	
+
+	#alertsdeletegrid {
+		width: 998px;
+		height: 350px !important;
+		border-color:#7BAFFF silver silver;
+		border-style:solid;
+		border-width:1px;
+	}
+
+
+
 	.filterBox select {
 		width:auto;
 	}
@@ -155,6 +159,8 @@ max-width:450px;
 	dojo11.require("dijit.Dialog");
 	dojo11.require("dijit.form.Button");
 </script>
+
+<script type="text/javascript" src="/hqu/adminhelper/public/js/adminhelper.js"></script>
 
 
 <script type="text/javascript">
@@ -584,6 +590,8 @@ max-width:450px;
 		dojo11.connect(tgrid, "onCellClick", showCaDialog);
 	});
 			</script>
+			
+
 			</div>
 			
 			<br/>
@@ -785,6 +793,132 @@ max-width:450px;
 	</div>
 
 	
+	<!-- ALERTDEF DEL TAB -->
+	<div dojoType="ContentPane" label="Alert Delete" onShow="AlertDeleteGrid_UpdateValues()">
+		<!-- FILTER PANE -->
+		<div style="margin-top:10px;margin-left:10px;margin-bottom:5px;padding-right:10px;">
+			<div style="float:left;width:1000px;margin-bottom:10px;">
+				<div class="filters">
+					<div class="BlockTitle">${l.filter}</div>
+					<div class="filterBox">
+						<div style="display: inline; font-weight: bold; float: left; width: 50px;">Types:</div>
+						<input type="radio" name="adg_group" id="Adg_FilterType" value="type"> 
+						<select id="Adg_ResourceSelect">
+						<option value="-1" selected="selected" disabled="disabled">Select Type...</option>
+						<option value="-1" disabled="disabled" class="boldText">Platform Type</option>
+						<%
+						controllableTypes.getPlatforms().each{
+							out.write('<option value="1:' + it.id + '">' + it.name + '</option>')
+						}
+						%>					
+						<option value="-1" disabled="disabled" class="boldText">Server Type</option>
+						<%
+						controllableTypes.getServers().each{
+							out.write('<option value="2:' + it.id + '">' + it.name + '</option>')
+						}
+						%>
+						<option value="-1" disabled="disabled" class="boldText">Service Type</option>
+						<%
+						controllableTypes.getServices().each{
+							out.write('<option value="3:' + it.id + '">' + it.name + '</option>')
+						}
+						%>
+						</select>
+						<input type="radio" name="adg_group" id="Adg_FilterGroup" value="group"> 
+						<%= selectList(groups, 
+	                             [id:'Adg_GroupSelect',
+	                              name:'groupSelect']) %>
+						<input type="radio" name="adg_group" id="Adg_FilterAll" value="all" checked="checked"> 
+						<label>All</label>
+					</div>
+					
+					<div class="filterBox">
+						<div style="display: inline; font-weight: bold; float: left; width: 50px;">Term:</div>
+						<input id="Adg_FilterText" type="text" />
+						<input id="Adg_DisabledAlerts" type="checkbox"/>
+						<label for="Adg_DisabledAlerts">Only Disabled Definitions</label>
+						<input id="Adg_RecoveryAlerts" type="checkbox"/>
+						<label for="Adg_RecoveryAlerts">Only Recovery Definitions</label>
+					</div>
+					
+					
+					
+					
+				
+				</div>
+			</div>
+		</div>
+		<!-- GRID PANE -->
+		<div style="float:left;width:1000px;margin-bottom:10px;margin-left:10px;margin-right:10px;display:inline;overflow-x: hidden; overflow-y: auto;">
+			<div class="pageCont">
+    			<div class="tableTitleWrapper">
+        			<div style="display: inline; width: 75px;">Alerts</div>    
+    			</div>
+				<div style="float: right; padding-right: 15px;">
+					<div id="deleteloader" style="display: inline; padding-right: 5px; visibility: hidden;"><img src="/hqu/public/images/ajax-loader-blue.gif"/></div>
+					<div id="refresh" style="display: inline; padding-right: 5px;">
+						<img src="/hqu/public/images/arrow_refresh.gif" onClick="AlertDeleteGrid_UpdateValues();"/>
+					</div>
+					<div style="display: inline;" id="adg_rowCount">Items: 123</div>
+				</div>
+			</div>
+			<div class="tundra" id="alertsdeleteContainer">
+			<script type="text/javascript">
+				dojo.addOnLoad(function() {
+			
+				var ttlayout = [
+					{ type: 'dojox11.GridRowView', width: '0px' },
+					{ rows: [[
+						{name:"Name", editor: dojox11.grid.editors.Input, field: 0, width: '33%'},
+						{name:"Desc", field: 1, width: '30%'},
+						{name:"Resource", field: 2, width: '30%'},
+						{name:'Select', field: 3, width: '7%', styles: 'text-align: center;', editor: dojox11.grid.editors.Bool }
+						]]}
+				];
+			
+				var ttalertsgrid = new dojox11.Grid({
+						id: "alertsdeletegrid",
+						structure: ttlayout
+					});
+					dojo.byId("alertsdeleteContainer").appendChild(ttalertsgrid.domNode);
+					
+					ttalertsgrid.startup();
+					ttalertsgrid.render();
+			
+				});
+			</script>
+			
+			
+			</div> 
+		</div>
+		
+		
+		<div style="float:left;width:1000px;margin-left:10px;margin-right:10px;margin-top:10px;display:inline;overflow-x: hidden; overflow-y: auto;" id="synccontrols">
+		
+			<div>
+				<a class="buttonGreen" onclick="AlertDelete_RequestDelete()" href="javascript:void(0)"><span>Delete</span></a>
+			</div>
+			<div>
+				<a class="buttonGreen" onclick="AlertDelete_ToggleHighlighted()" href="javascript:void(0)"><span>Toggle Highlighted</span></a>
+			</div>
+			<div id='deleteTimeStatus' style="margin-top: 40px; margin-bottom: 5px;">Status:  Idle</div>
+		
+			<div dojo11Type="dijit11.form.DropDownButton">
+				<span>Show Report</span>
+				<div dojo11Type="dijit11.TooltipDialog" id="deletestatusreportdialog">
+					<div id="deletestatusreportcontent">
+						<div class="reportstatus">No delete executed.</div>
+					</div>
+				</div>
+			</div> 
+		</div>
+	
+	
+		<div style="clear:both;height:1px;"></div>
+
+		
+		
+	</div>
 	
 	
 </div>
