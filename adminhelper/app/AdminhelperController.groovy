@@ -225,6 +225,8 @@ class AdminhelperController
         
     	JSONArray jsonData = new JSONArray()
     	
+    	// compiling regex pattern. Because user can enter false
+    	// clauses, catch errors and continue
     	Pattern p = null
     	try {
         	if (filterText != null && filterText.trim().length() > 0)
@@ -232,6 +234,7 @@ class AdminhelperController
     	} catch (Exception e) {
     	}
     	
+    	// check which definitions we actually want to filter
     	defs.each {
        		def row = [:]
        		def add = false
@@ -270,7 +273,6 @@ class AdminhelperController
      * Process request to delete alert definitions.
      */
     def executeDelete(params) {
-    	def manager = new Manager(user)
     	def nDelete = 0
     	def report = new Report(Report.INSTANCE_DELETE)
     	long start = now()
@@ -278,12 +280,15 @@ class AdminhelperController
 
     	for(def i = 0; i<rData.length(); i++) {
             def r = rData.getJSONArray(i)
-            log.info "tf: " + r.getBoolean(3)
-            log.info "int: " + r.getInt(4)
+           	def manager = new Manager(user)
             if(r.getBoolean(3)) {
-            	manager.deleteAlertDefinition(r.getInt(4))
-            	nDelete++
+            	try {
+                	manager.deleteAlertDefinition(r.getInt(4))            		
+            	} catch (Exception e) {
+        			manager.reportItem.addMessage("General error in definition delete. " + e, Report.ERROR)            		
+            	}
             	report.addReport(manager.reportItem)
+            	nDelete++
             }
     	}
 
